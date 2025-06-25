@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ATS Resume Analyzer</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  h1 {
+    text-align: center;
+  }
+  label {
+    display: block;
+    margin-top: 15px;
+    font-weight: bold;
+  }
+  input[type="file"], textarea {
+    width: 100%;
+    padding: 8px;
+    margin-top: 5px;
+    box-sizing: border-box;
+  }
+  textarea {
+    height: 120px;
+    resize: vertical;
+  }
+  button {
+    margin-top: 20px;
+    padding: 10px 15px;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  #loader {
+    display: none;
+    margin-top: 20px;
+    text-align: center;
+  }
+  #results {
+    margin-top: 20px;
+    border-top: 1px solid #ccc;
+    padding-top: 15px;
+  }
+  #results h2 {
+    margin-bottom: 10px;
+  }
+  #results ul {
+    list-style-type: disc;
+    margin-left: 20px;
+  }
+</style>
+</head>
+<body>
+  <h1>ATS Resume Analyzer</h1>
+  <form id="analyzer-form">
+    <label for="resume-file">Upload Resume (PDF or DOCX):</label>
+    <input type="file" id="resume-file" accept=".pdf,.docx,.doc" required />
+
+    <label for="job-description">Job Description:</label>
+    <textarea id="job-description" placeholder="Enter job description here..." required></textarea>
+
+    <button type="submit">Analyze</button>
+  </form>
+
+  <div id="loader">Analyzing... Please wait.</div>
+
+  <div id="results" style="display:none;">
+    <h2>Results</h2>
+    <p><strong>ATS Match Score:</strong> <span id="match-score"></span>%</p>
+    <p><strong>Matched Keywords:</strong></p>
+    <ul id="matched-keywords"></ul>
+    <p><strong>Missing Keywords:</strong></p>
+    <ul id="missing-keywords"></ul>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

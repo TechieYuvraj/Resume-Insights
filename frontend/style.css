@@ -1,0 +1,48 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 20px;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+h1 {
+  text-align: center;
+}
+label {
+  display: block;
+  margin-top: 15px;
+  font-weight: bold;
+}
+input[type="file"], textarea {
+  width: 100%;
+  padding: 8px;
+  margin-top: 5px;
+  box-sizing: border-box;
+}
+textarea {
+  height: 120px;
+  resize: vertical;
+}
+button {
+  margin-top: 20px;
+  padding: 10px 15px;
+  font-size: 16px;
+  cursor: pointer;
+}
+#loader {
+  display: none;
+  margin-top: 20px;
+  text-align: center;
+}
+#results {
+  margin-top: 20px;
+  border-top: 1px solid #ccc;
+  padding-top: 15px;
+}
+#results h2 {
+  margin-bottom: 10px;
+}
+#results ul {
+  list-style-type: disc;
+  margin-left: 20px;
+}
