@@ -2,9 +2,9 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Request, Hea
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 import uuid
-from parser import extract_text_from_pdf, extract_text_from_docx
-from matcher import compare_resume_job_keywords
-from report_generator import generate_pdf_report
+from backend.parser import extract_text_from_pdf, extract_text_from_docx
+from backend.matcher import compare_resume_job_keywords
+from backend.report_generator import generate_pdf_report
 
 app = FastAPI()
 
