@@ -26,7 +26,7 @@ uploadBtn.addEventListener('click', async () => {
     uploadStatus.textContent = 'Uploading...';
 
     try {
-        const response = await fetch('https://ats-backend.onrender.com/upload-resume', {
+        const response = await fetch('http://127.0.0.1:8000/upload-resume', {
             method: 'POST',
             body: formData,
         });
@@ -55,7 +55,7 @@ submitJobBtn.addEventListener('click', async () => {
         const formData = new FormData();
         formData.append('description', description);
 
-        const response = await fetch('https://ats-backend.onrender.com/submit-job', {
+        const response = await fetch('http://127.0.0.1:8000/submit-job', {
             method: 'POST',
             headers: {
                 'x-session-id': sessionId,
@@ -78,7 +78,7 @@ submitJobBtn.addEventListener('click', async () => {
 async function fetchMatchScore() {
     matchScoreDisplay.textContent = 'Calculating match score...';
     try {
-        const response = await fetch('https://ats-backend.onrender.com/match-score', {
+        const response = await fetch('http://127.0.0.1:8000/match-score', {
             method: 'POST',
             headers: {
                 'x-session-id': sessionId,
@@ -86,7 +86,7 @@ async function fetchMatchScore() {
         });
         const data = await response.json();
         if (response.ok) {
-            matchScoreDisplay.textContent = `Match Score: ${data.score || data.match_percentage || 'N/A'}`;
+            matchScoreDisplay.textContent = `Match Score: ${data.match_score !== undefined ? data.match_score : 'N/A'}`;
         } else {
             matchScoreDisplay.textContent = `Error: ${data.detail || 'Failed to get match score.'}`;
         }
@@ -108,7 +108,7 @@ generateReportBtn.addEventListener('click', async () => {
             job_role: 'Sample Job Role',
         };
 
-        const response = await fetch('https://ats-backend.onrender.com/generate-report', {
+        const response = await fetch('http://127.0.0.1:8000/generate-report', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
