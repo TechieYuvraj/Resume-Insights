@@ -13,6 +13,9 @@ const generateReportBtn = document.getElementById('generate-report-btn');
 const reportStatus = document.getElementById('report-status');
 
 let sessionId = null;
+let currentMatchScore = null;
+let currentMatchedKeywords = [];
+let currentMissingKeywords = [];
 
 uploadBtn.addEventListener('click', async () => {
     if (!resumeFileInput.files.length) {
@@ -86,7 +89,10 @@ async function fetchMatchScore() {
         });
         const data = await response.json();
         if (response.ok) {
-            matchScoreDisplay.textContent = `Match Score: ${data.match_score !== undefined ? data.match_score : 'N/A'}`;
+            currentMatchScore = data.match_score !== undefined ? data.match_score : null;
+            currentMatchedKeywords = data.matched_keywords || [];
+            currentMissingKeywords = data.missing_keywords || [];
+            matchScoreDisplay.textContent = `Match Score: ${currentMatchScore !== null ? currentMatchScore : 'N/A'}`;
         } else {
             matchScoreDisplay.textContent = `Error: ${data.detail || 'Failed to get match score.'}`;
         }
@@ -99,11 +105,10 @@ generateReportBtn.addEventListener('click', async () => {
     reportStatus.textContent = 'Generating report...';
 
     try {
-        // For demo, send dummy data; in real app, gather actual match data
         const payload = {
-            match_score: 85,
-            matched_keywords: ['python', 'fastapi'],
-            missing_keywords: ['docker'],
+            match_score: currentMatchScore !== null ? currentMatchScore : 0,
+            matched_keywords: currentMatchedKeywords,
+            missing_keywords: currentMissingKeywords,
             resume_name: resumeFileInput.files[0]?.name || 'Resume',
             job_role: 'Sample Job Role',
         };
