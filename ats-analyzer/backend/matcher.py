@@ -3,6 +3,7 @@ import string
 from collections import defaultdict
 from fuzzywuzzy import fuzz
 import spacy
+from spacy.matcher import PhraseMatcher, Matcher
 from domain_keywords import DOMAIN_KEYWORDS
 
 # Load the spaCy model
@@ -36,7 +37,7 @@ def extract_keywords(text: str) -> set:
     Also extracts common bigrams (two-word phrases).
     """
     text = text.lower()
-    text = text.translate(str.maketrans("", "", string.punctuation))
+    text = re.sub(r'[^\w\s]', '', text)
     words = re.findall(r'\b\w{3,}\b', text) # words of 3 or more characters
     
     # Add bigrams (two-word phrases)
@@ -87,9 +88,9 @@ def extract_and_categorize_keywords(job_description: str, categories: dict) -> d
             if "year" in ent.text.lower() or "experience" in ent.text.lower():
                 categories["Experience"]["keywords"].append(ent.text)
         elif ent.label_ in ["GPE", "LOC"]:
-            # Could be relevant for job location, but for now, add to skills if not specific
             categories["Skills"]["keywords"].append(ent.text)
 
+    # Enhanced keyword extraction for Skills, Responsibilities, and Job Title
     for token in doc:
         if token.pos_ == "NOUN" and not token.is_stop:
             if "experience" in token.text.lower() or "years" in token.text.lower():
@@ -101,20 +102,61 @@ def extract_and_categorize_keywords(job_description: str, categories: dict) -> d
             elif "project" in token.text.lower() or "portfolio" in token.text.lower():
                 categories["Projects / Portfolios"]["keywords"].append(token.text)
             else:
+                # General nouns as skills
                 categories["Skills"]["keywords"].append(token.text)
         elif token.pos_ == "VERB" and not token.is_stop:
-            # Simple responsibilities extraction
+            # Responsibilities: look for action verbs
             categories["Responsibilities Match"]["keywords"].append(token.lemma_)
 
-    # Job Title & Role Match (simple extraction for now)
-    job_title_match = re.search(r"(senior|junior|lead|staff|principal)?\s*(\w+\s*){1,3}(engineer|developer|analyst|manager|specialist|architect)", job_description, re.IGNORECASE)
-    if job_title_match:
-        categories["Job Title & Role Match"]["keywords"].append(job_title_match.group(0))
+    # Extracting multi-word skills and technologies
+    skill_patterns = [
+        {"LOWER": "html"}, {"LOWER": "css"}, {"LOWER": "javascript"},
+        {"LOWER": "react"}, {"LOWER": "angular"}, {"LOWER": "node.js"},
+        {"LOWER": "web"}, {"LOWER": "development"}, {"LOWER": "frameworks"},
+        {"LOWER": "python"}, {"LOWER": "sql"}, {"LOWER": "kali"}, {"LOWER": "linux"},
+        {"LOWER": "technical"}, {"LOWER": "support"}, {"LOWER": "security"}, {"LOWER": "researcher"}
+    ]
+    from spacy.matcher import PhraseMatcher
+    matcher = PhraseMatcher(nlp.vocab)
+    
+    # Add patterns for common skills and technologies
+    patterns = [nlp.make_doc(text) for text in [
+        "HTML", "CSS", "JavaScript", "React", "Angular", "Node.js", "Web Development",
+        "Python", "SQL", "Kali Linux", "Technical Support", "Security Researcher",
+        "Sophos Firewall", "network interfaces", "firewall", "NAT rules", "VPN",
+        "web filtering", "intrusion prevention", "threat protection", "logging",
+        "firmware updates", "Google Analytics", "data storytelling", "client engagement",
+        "campaign", "ROI", "customer segments", "Burp Suite", "OWASP", "OSCP", "CISSP"
+    ]]
+    matcher.add("SKILL_PATTERNS", patterns)
 
-    # Achievements & Impact (look for quantifiable terms)
-    impact_match = re.findall(r"\b(?:increased|decreased|reduced|improved|achieved|generated)\s+\w+\s+(?:by|of)?\s*\d+[%$]?", job_description, re.IGNORECASE)
-    if impact_match:
-        categories["Achievements & Impact"]["keywords"].extend(impact_match)
+    matches = matcher(doc)
+    for match_id, start, end in matches:
+        span = doc[start:end]
+        categories["Skills"]["keywords"].append(span.text)
+
+    # Job Title & Role Match (more robust extraction)
+    job_title_patterns = [
+        {"LOWER": {"IN": ["developer", "engineer", "analyst", "manager", "specialist", "architect", "consultant"]}},
+        {"POS": "NOUN", "OP": "+"},
+        {"LOWER": {"IN": ["web", "software", "data", "security", "marketing", "financial"]}, "OP": "?"}
+    ]
+    from spacy.matcher import Matcher
+    title_matcher = Matcher(nlp.vocab)
+    title_matcher.add("JOB_TITLE", [job_title_patterns])
+    title_matches = title_matcher(doc)
+    for match_id, start, end in title_matches:
+        span = doc[start:end]
+        categories["Job Title & Role Match"]["keywords"].append(span.text)
+
+    # Achievements & Impact (look for quantifiable terms and strong action verbs)
+    impact_terms = [
+        "increased", "decreased", "reduced", "improved", "achieved", "generated",
+        "optimized", "streamlined", "implemented", "developed", "launched", "managed"
+    ]
+    for term in impact_terms:
+        if term in job_description.lower():
+            categories["Achievements & Impact"]["keywords"].append(term)
 
     return categories
 
