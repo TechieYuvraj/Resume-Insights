@@ -4,3 +4,6 @@ pdfplumber
 python-docx
 reportlab
 spacy
+scipy
+fuzzywuzzy
+python-Levenshtein
