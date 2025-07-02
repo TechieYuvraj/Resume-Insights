@@ -31,6 +31,11 @@ STOPWORDS = {
     "you", "you'd", "you'll", "you're", "you've", "your", "yours", "yourself", "yourselves"
 }
 
+# Generic words that should not be considered as standalone keywords for matching
+GENERIC_WORDS_TO_FILTER = {
+    "led", "modify", "enrol", "apply", "base", "build", "encourage", "strong", "teamwork", "angular", "graduate", "experience"
+}
+
 def extract_keywords(text: str) -> set:
     """
     Extracts keywords from text by tokenizing, removing punctuation and stopwords.
@@ -43,8 +48,8 @@ def extract_keywords(text: str) -> set:
     # Add bigrams (two-word phrases)
     bigrams = [" ".join(words[i:i+2]) for i in range(len(words) - 1)]
     
-    all_terms = set(word for word in words if word not in STOPWORDS)
-    all_terms.update(set(bigram for bigram in bigrams if all(word not in STOPWORDS for word in bigram.split())))
+    all_terms = set(word for word in words if word not in STOPWORDS and word not in GENERIC_WORDS_TO_FILTER)
+    all_terms.update(set(bigram for bigram in bigrams if all(word not in STOPWORDS and word not in GENERIC_WORDS_TO_FILTER for word in bigram.split())))
     
     return all_terms
 
@@ -93,15 +98,19 @@ def extract_and_categorize_keywords(job_description: str, categories: dict) -> d
     matches = skill_matcher(doc)
     for match_id, start, end in matches:
         span = doc[start:end]
-        categories["Skills"]["keywords"].add(span.text)
+        if span.text not in GENERIC_WORDS_TO_FILTER:
+            categories["Skills"]["keywords"].add(span.text)
 
     matches = cert_matcher(doc)
     for match_id, start, end in matches:
         span = doc[start:end]
-        categories["Certifications"]["keywords"].add(span.text)
+        if span.text not in GENERIC_WORDS_TO_FILTER:
+            categories["Certifications"]["keywords"].add(span.text)
 
     # Enhanced keyword extraction using spaCy's NER and token attributes
     for ent in doc.ents:
+        if ent.text.lower() in GENERIC_WORDS_TO_FILTER: # Filter out generic words from NER
+            continue
         if ent.label_ in ["ORG", "PRODUCT", "SKILL", "LANGUAGE"]: # Broader entity types for skills
             categories["Skills"]["keywords"].add(ent.text)
         elif ent.label_ == "DATE":
@@ -114,20 +123,20 @@ def extract_and_categorize_keywords(job_description: str, categories: dict) -> d
     # Iterate through tokens for more granular extraction
     for token in doc:
         # Education
-        if token.pos_ == "NOUN" and any(edu_kw in token.text for edu_kw in ["degree", "bachelor", "master", "phd", "education", "university", "college"]):
+        if token.pos_ == "NOUN" and any(edu_kw in token.text for edu_kw in ["degree", "bachelor", "master", "phd", "education", "university", "college"]) and token.text not in GENERIC_WORDS_TO_FILTER:
             categories["Education"]["keywords"].add(token.text)
         
         # Experience (looking for years, or action verbs in context)
-        if token.pos_ == "NOUN" and ("year" in token.text or "experience" in token.text):
+        if token.pos_ == "NOUN" and ("year" in token.text or "experience" in token.text) and token.text not in GENERIC_WORDS_TO_FILTER:
             categories["Experience"]["keywords"].add(token.text)
-        elif token.pos_ == "VERB" and not token.is_stop:
-            # Responsibilities: action verbs
+        elif token.pos_ == "VERB" and not token.is_stop and token.lemma_ not in GENERIC_WORDS_TO_FILTER:
+            # Responsibilities: action verbs, filtered for generic terms
             categories["Responsibilities Match"]["keywords"].add(token.lemma_)
         
         # Soft Skills (often adjectives or nouns related to personal attributes)
-        if token.pos_ == "ADJ" and token.text in ["strong", "excellent", "proven", "effective", "analytical", "creative", "problem-solving", "communication", "leadership", "teamwork"]:
+        if token.pos_ == "ADJ" and token.text in ["strong", "excellent", "proven", "effective", "analytical", "creative", "problem-solving", "communication", "leadership", "teamwork"] and token.text not in GENERIC_WORDS_TO_FILTER:
             categories["Soft Skills"]["keywords"].add(token.text)
-        elif token.pos_ == "NOUN" and token.text in ["communication", "leadership", "teamwork", "collaboration", "adaptability"]:
+        elif token.pos_ == "NOUN" and token.text in ["communication", "leadership", "teamwork", "collaboration", "adaptability"] and token.text not in GENERIC_WORDS_TO_FILTER:
             categories["Soft Skills"]["keywords"].add(token.text)
 
         # Projects / Portfolios
@@ -143,7 +152,8 @@ def extract_and_categorize_keywords(job_description: str, categories: dict) -> d
     title_matches = title_matcher(doc)
     for match_id, start, end in title_matches:
         span = doc[start:end]
-        categories["Job Title & Role Match"]["keywords"].add(span.text)
+        if span.text.lower() not in GENERIC_WORDS_TO_FILTER:
+            categories["Job Title & Role Match"]["keywords"].add(span.text)
 
     # Achievements & Impact (look for quantifiable terms and strong action verbs)
     impact_terms = [
@@ -152,7 +162,7 @@ def extract_and_categorize_keywords(job_description: str, categories: dict) -> d
         "led", "drove", "delivered", "exceeded", "surpassed"
     ]
     for term in impact_terms:
-        if term in job_description.lower():
+        if term in job_description.lower() and term not in GENERIC_WORDS_TO_FILTER:
             categories["Achievements & Impact"]["keywords"].add(term)
 
     # Convert sets back to lists for the report, ensuring uniqueness
@@ -161,7 +171,7 @@ def extract_and_categorize_keywords(job_description: str, categories: dict) -> d
 
     return categories
 
-def generate_detailed_report(resume_text: str, job_description: str, threshold=80, semantic_threshold=0.7) -> dict:
+def generate_detailed_report(resume_text: str, job_description: str, threshold=90, semantic_threshold=0.8) -> dict:
     """
     Generates a detailed report by categorizing keywords and providing recommendations.
     """
@@ -202,10 +212,18 @@ def generate_detailed_report(resume_text: str, job_description: str, threshold=8
             found_match = False
             for resume_kw, resume_doc in resume_docs.items():
                 # Fuzzy matching
-                if fuzz.token_set_ratio(job_kw, resume_kw) >= threshold:
-                    matched_in_category.add(job_kw)
-                    found_match = True
-                    break
+                # For single, short words, use a stricter fuzzy match (fuzz.ratio)
+                # For longer words or phrases, use token_set_ratio
+                if ' ' not in job_kw and len(job_kw) < 7: # If it's a single, short word
+                    if fuzz.ratio(job_kw, resume_kw) >= 95: # Very strict exact match
+                        matched_in_category.add(job_kw)
+                        found_match = True
+                        break
+                else: # For longer words or phrases
+                    if fuzz.token_set_ratio(job_kw, resume_kw) >= threshold:
+                        matched_in_category.add(job_kw)
+                        found_match = True
+                        break
                 # Semantic similarity matching (only if fuzzy match not found and job_kw_doc has vector)
                 if not found_match and job_kw_doc.has_vector and resume_doc.has_vector:
                     similarity = job_kw_doc.similarity(resume_doc)
