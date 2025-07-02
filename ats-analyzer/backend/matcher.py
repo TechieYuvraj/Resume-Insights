@@ -4,6 +4,7 @@ from collections import defaultdict
 from fuzzywuzzy import fuzz
 import spacy
 from spacy.matcher import PhraseMatcher, Matcher
+from scipy.spatial.distance import cosine
 
 # Load the spaCy model
 nlp = spacy.load("en_core_web_sm")
@@ -160,7 +161,7 @@ def extract_and_categorize_keywords(job_description: str, categories: dict) -> d
 
     return categories
 
-def generate_detailed_report(resume_text: str, job_description: str, threshold=80) -> dict:
+def generate_detailed_report(resume_text: str, job_description: str, threshold=80, semantic_threshold=0.7) -> dict:
     """
     Generates a detailed report by categorizing keywords and providing recommendations.
     """
@@ -188,16 +189,30 @@ def generate_detailed_report(resume_text: str, job_description: str, threshold=8
     all_matched_keywords = set()
     all_missing_keywords = set()
 
+    # Process resume keywords with spaCy for semantic similarity
+    resume_docs = {kw: nlp(kw) for kw in resume_keywords}
+
     for category, data in categorized_keywords.items():
         if not data["keywords"]:
             continue
 
         matched_in_category = set()
         for job_kw in data["keywords"]:
-            for resume_kw in resume_keywords:
+            job_kw_doc = nlp(job_kw)
+            found_match = False
+            for resume_kw, resume_doc in resume_docs.items():
+                # Fuzzy matching
                 if fuzz.token_set_ratio(job_kw, resume_kw) >= threshold:
                     matched_in_category.add(job_kw)
+                    found_match = True
                     break
+                # Semantic similarity matching (only if fuzzy match not found and job_kw_doc has vector)
+                if not found_match and job_kw_doc.has_vector and resume_doc.has_vector:
+                    similarity = job_kw_doc.similarity(resume_doc)
+                    if similarity >= semantic_threshold:
+                        matched_in_category.add(job_kw)
+                        found_match = True
+                        break
 
         category_match_percentage = 0
         if data["keywords"]:
