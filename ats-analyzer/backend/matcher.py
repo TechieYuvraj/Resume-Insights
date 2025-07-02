@@ -1,6 +1,7 @@
 import re
 import string
 from collections import defaultdict
+from fuzzywuzzy import fuzz
 
 # Common English stopwords list
 STOPWORDS = {
@@ -25,70 +26,105 @@ STOPWORDS = {
 }
 
 def extract_keywords(text: str) -> set:
-    # Tokenize text, remove punctuation, lowercase, remove stopwords and short words
+    """
+    Extracts keywords from text by tokenizing, removing punctuation and stopwords.
+    """
     text = text.lower()
     text = text.translate(str.maketrans("", "", string.punctuation))
     words = re.findall(r'\b\w{3,}\b', text)
-    keywords = set(word for word in words if word not in STOPWORDS)
-    return keywords
+    return set(word for word in words if word not in STOPWORDS)
 
-def compare_resume_job_keywords(resume_text: str, job_description: str) -> dict:
+def compare_resume_job_keywords(resume_text: str, job_description: str, threshold=80) -> dict:
+    """
+    Compares resume and job description keywords using fuzzy matching.
+    """
     resume_keywords = extract_keywords(resume_text)
     job_keywords = extract_keywords(job_description)
 
-    matched_keywords = list(resume_keywords.intersection(job_keywords))
-    missing_keywords = list(job_keywords.difference(resume_keywords))
+    matched_keywords = set()
+    missing_keywords = set(job_keywords)
 
-    match_score_value = 0
+    for job_keyword in job_keywords:
+        for resume_keyword in resume_keywords:
+            if fuzz.ratio(job_keyword, resume_keyword) >= threshold:
+                matched_keywords.add(job_keyword)
+                if job_keyword in missing_keywords:
+                    missing_keywords.remove(job_keyword)
+                break
+
+    match_score = 0
     if job_keywords:
-        match_score_value = int(len(matched_keywords) / len(job_keywords) * 100)
+        match_score = int(len(matched_keywords) / len(job_keywords) * 100)
 
     return {
-        "match_score": match_score_value,
-        "matched_keywords": matched_keywords,
-        "missing_keywords": missing_keywords
+        "match_score": match_score,
+        "matched_keywords": sorted(list(matched_keywords)),
+        "missing_keywords": sorted(list(missing_keywords))
     }
 
 def generate_detailed_report(resume_text: str, job_description: str) -> dict:
-    resume_keywords = extract_keywords(resume_text)
+    """
+    Generates a detailed report by categorizing keywords and providing recommendations.
+    """
+    comparison_results = compare_resume_job_keywords(resume_text, job_description)
+    matched_keywords = set(comparison_results["matched_keywords"])
+    
     job_keywords = extract_keywords(job_description)
 
-    matched_keywords = resume_keywords.intersection(job_keywords)
-    missing_keywords = job_keywords.difference(resume_keywords)
+    # Predefined category keywords for reference
+    predefined_categories = {
+        "Experience Level": {"internship", "trainee", "junior", "senior", "lead", "manager", "consultant"},
+        "Application Security": {"vulnerability", "assessment", "penetration", "secure", "code", "review", "testing"},
+        "Programming Skills": {"java", "c++", "python", "javascript", "js", "shell", "bash"},
+        "Security Tools": {"burp", "ida", "wireshark", "nmap", "nessus", "splunk", "zap"},
+        "Certifications": {"oscp", "cissp", "security+", "ejpt", "oswe", "gwapt"},
+        "Threat Modeling & Architecture": {"threat", "modeling", "architecture", "design"},
+        "Manual Pen Testing": {"manual", "penetration", "exploit"},
+        "Mobile App Security": {"mobile", "android", "ios", "app"},
+        "Education": {"b.tech", "bachelor", "computer", "information", "technology", "cs"},
+        "Communication Skills": {"communication", "teamwork", "leadership", "collaboration", "presentation"},
+        "Projects & Initiatives": {"project", "initiative", "development", "software"},
+    }
 
-    match_score_value = 0
-    if job_keywords:
-        match_score_value = int(len(matched_keywords) / len(job_keywords) * 100)
-
-    # Dynamic category generation by grouping keywords by common prefixes or stems
+    # Map keywords to categories dynamically
     category_keywords_map = defaultdict(set)
+    other_keywords = set()
 
     for keyword in job_keywords:
-        # Use simple heuristic: group by first 4 letters or whole word if short
-        category_key = keyword[:4] if len(keyword) > 4 else keyword
-        category_keywords_map[category_key].add(keyword)
+        matched_category = None
+        for category, keywords_set in predefined_categories.items():
+            if keyword in keywords_set:
+                category_keywords_map[category].add(keyword)
+                matched_category = category
+                break
+        if not matched_category:
+            other_keywords.add(keyword)
 
-    # Evaluate each dynamic category
+    if other_keywords:
+        category_keywords_map["Other"] = other_keywords
+
+    # Evaluate each category
     ats_match_breakdown = []
     recommendations = []
-    for category_key, keywords in category_keywords_map.items():
-        matched = matched_keywords.intersection(keywords)
-        if matched:
+    for category, keywords in category_keywords_map.items():
+        category_matched = matched_keywords.intersection(keywords)
+        
+        if category_matched:
             match_level = "Good"
-            details = f"Matched keywords: {', '.join(matched)}"
+            details = f"Matched keywords: {', '.join(sorted(list(category_matched)))}"
         else:
             match_level = "None"
             details = "Not mentioned."
 
         ats_match_breakdown.append({
-            "category": category_key.capitalize(),
+            "category": category,
             "match_level": match_level,
             "details": details,
         })
 
         # Add generic recommendation for categories with no match
         if match_level == "None":
-            recommendations.append(f"Consider gaining experience or knowledge in '{category_key}' related areas.")
+            recommendations.append(f"Consider gaining experience or knowledge in '{category}' related areas.")
 
     # Summary
     summary = (
@@ -96,8 +132,10 @@ def generate_detailed_report(resume_text: str, job_description: str) -> dict:
         "Focus on improving areas with low or no match to increase your ATS compatibility."
     )
 
+    match_score_value = comparison_results["match_score"]
+    
     report = {
-        "match_score_estimate": f"~{match_score_value - 10}-{match_score_value + 10}%",
+        "match_score_estimate": f"~{match_score_value - 5}-{match_score_value + 5}%",
         "ats_match_breakdown": ats_match_breakdown,
         "recommendations": recommendations,
         "summary": summary,

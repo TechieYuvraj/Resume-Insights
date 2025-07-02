@@ -7,18 +7,21 @@ const jobDescriptionInput = document.getElementById('job-description');
 const submitJobBtn = document.getElementById('submit-job-btn');
 const jobStatus = document.getElementById('job-status');
 
-const matchScoreSection = document.getElementById('match-score-section');
+const loader = document.getElementById('loader');
+const reportSection = document.getElementById('report-section');
 const matchScoreDisplay = document.getElementById('match-score');
-const reportStatus = document.getElementById('report-status');
+const matchedKeywordsList = document.getElementById('matched-keywords');
+const missingKeywordsList = document.getElementById('missing-keywords');
+const detailedReportContainer = document.getElementById('detailed-report');
 
 let sessionId = null;
-let currentMatchScore = null;
-let currentMatchedKeywords = [];
-let currentMissingKeywords = [];
+
+// API base URL
+const API_BASE_URL = 'http://127.0.0.1:8000';
 
 uploadBtn.addEventListener('click', async () => {
     if (!resumeFileInput.files.length) {
-        uploadStatus.textContent = 'Please select a resume file to upload.';
+        uploadStatus.textContent = 'Please select a resume file.';
         return;
     }
     const file = resumeFileInput.files[0];
@@ -26,9 +29,8 @@ uploadBtn.addEventListener('click', async () => {
     formData.append('file', file);
 
     uploadStatus.textContent = 'Uploading...';
-
     try {
-        const response = await fetch('http://127.0.0.1:8000/upload-resume', {
+        const response = await fetch(`${API_BASE_URL}/upload-resume`, {
             method: 'POST',
             body: formData,
         });
@@ -51,139 +53,115 @@ submitJobBtn.addEventListener('click', async () => {
         jobStatus.textContent = 'Please enter a job description.';
         return;
     }
-    jobStatus.textContent = 'Submitting job description...';
+
+    jobStatus.textContent = '';
+    loader.style.display = 'block';
+    reportSection.style.display = 'none';
 
     try {
         const formData = new FormData();
         formData.append('description', description);
 
-        const response = await fetch('http://127.0.0.1:8000/submit-job', {
+        await fetch(`${API_BASE_URL}/submit-job`, {
             method: 'POST',
             headers: {
                 'x-session-id': sessionId,
             },
             body: formData,
         });
-        const data = await response.json();
-        if (response.ok) {
-            jobStatus.textContent = 'Job description submitted successfully.';
-            matchScoreSection.style.display = 'block';
-            await fetchDetailedReport();
+
+        const [reportResponse, keywordsResponse] = await Promise.all([
+            fetch(`${API_BASE_URL}/detailed-report`, {
+                method: 'POST',
+                headers: { 'x-session-id': sessionId }
+            }),
+            fetch(`${API_BASE_URL}/match-score`, {
+                method: 'POST',
+                headers: { 'x-session-id': sessionId }
+            })
+        ]);
+
+        const reportData = await reportResponse.json();
+        const keywordsData = await keywordsResponse.json();
+
+        if (reportResponse.ok && keywordsResponse.ok) {
+            displayReport(reportData, keywordsData);
         } else {
-            jobStatus.textContent = `Error: ${data.detail || 'Submission failed.'}`;
+            throw new Error('Failed to fetch analysis.');
         }
+
     } catch (error) {
         jobStatus.textContent = `Error: ${error.message}`;
+    } finally {
+        loader.style.display = 'none';
     }
 });
 
-async function fetchDetailedReport() {
-    matchScoreDisplay.textContent = 'Generating detailed report...';
-    try {
-        const response = await fetch('http://127.0.0.1:8000/detailed-report', {
-            method: 'POST',
-            headers: {
-                'x-session-id': sessionId,
-            },
+function displayReport(report, keywords) {
+    reportSection.style.display = 'block';
+
+    // Display match score
+    matchScoreDisplay.textContent = `Match Score: ${keywords.match_score}%`;
+
+    // Display keywords
+    displayKeywords(matchedKeywordsList, keywords.matched_keywords);
+    displayKeywords(missingKeywordsList, keywords.missing_keywords);
+
+    // Display detailed report table
+    displayDetailedReportTable(report.ats_match_breakdown);
+}
+
+function displayKeywords(listElement, keywords) {
+    listElement.innerHTML = '';
+    if (keywords.length > 0) {
+        keywords.forEach(keyword => {
+            const li = document.createElement('li');
+            li.textContent = keyword;
+            listElement.appendChild(li);
         });
-        const data = await response.json();
-        if (response.ok) {
-            displayDetailedReport(data);
-        } else {
-            matchScoreDisplay.textContent = `Error: ${data.detail || 'Failed to get detailed report.'}`;
-        }
-    } catch (error) {
-        matchScoreDisplay.textContent = `Error: ${error.message}`;
+    } else {
+        const li = document.createElement('li');
+        li.textContent = 'None';
+        listElement.appendChild(li);
     }
 }
 
-function displayDetailedReport(report) {
-    // Clear previous content
-    matchScoreDisplay.innerHTML = '';
-
-    // Match Score Estimate
-    const scoreElem = document.createElement('p');
-    scoreElem.textContent = `Match Score Estimate: ${report.match_score_estimate}`;
-    matchScoreDisplay.appendChild(scoreElem);
-
-    // ATS Match Breakdown Table
-    const breakdownHeader = document.createElement('h3');
-    breakdownHeader.textContent = 'ATS Match Breakdown';
-    matchScoreDisplay.appendChild(breakdownHeader);
-
+function displayDetailedReportTable(breakdown) {
+    detailedReportContainer.innerHTML = '';
     const table = document.createElement('table');
-    table.style.borderCollapse = 'collapse';
-    table.style.width = '100%';
-
     const thead = document.createElement('thead');
     const headerRow = document.createElement('tr');
     ['Category', 'Match Level', 'Details'].forEach(text => {
         const th = document.createElement('th');
         th.textContent = text;
-        th.style.border = '1px solid black';
-        th.style.padding = '8px';
-        th.style.textAlign = 'left';
         headerRow.appendChild(th);
     });
     thead.appendChild(headerRow);
     table.appendChild(thead);
 
     const tbody = document.createElement('tbody');
-    report.ats_match_breakdown.forEach(item => {
+    breakdown.forEach(item => {
         const row = document.createElement('tr');
-        [item.category, item.match_level, item.details].forEach(text => {
+        Object.values(item).forEach(text => {
             const td = document.createElement('td');
             td.textContent = text;
-            td.style.border = '1px solid black';
-            td.style.padding = '8px';
             row.appendChild(td);
         });
         tbody.appendChild(row);
     });
     table.appendChild(tbody);
-    matchScoreDisplay.appendChild(table);
-
-    // Recommendations
-    const recommendationsHeader = document.createElement('h3');
-    recommendationsHeader.textContent = 'Recommendations';
-    matchScoreDisplay.appendChild(recommendationsHeader);
-    const recommendationsList = document.createElement('ul');
-    report.recommendations.forEach(rec => {
-        const li = document.createElement('li');
-        li.textContent = rec;
-        recommendationsList.appendChild(li);
-    });
-    matchScoreDisplay.appendChild(recommendationsList);
-
-    // Summary
-    const summaryHeader = document.createElement('h3');
-    summaryHeader.textContent = 'Summary';
-    matchScoreDisplay.appendChild(summaryHeader);
-    const summaryPara = document.createElement('p');
-    summaryPara.textContent = report.summary;
-    matchScoreDisplay.appendChild(summaryPara);
+    detailedReportContainer.appendChild(table);
 }
 
-async function fetchMatchScore() {
-    matchScoreDisplay.textContent = 'Calculating match score...';
-    try {
-        const response = await fetch('http://127.0.0.1:8000/match-score', {
-            method: 'POST',
-            headers: {
-                'x-session-id': sessionId,
-            },
+// Add event listeners for copy buttons
+document.querySelectorAll('.copy-btn').forEach(button => {
+    button.addEventListener('click', () => {
+        const targetId = button.dataset.target;
+        const list = document.getElementById(targetId);
+        const textToCopy = Array.from(list.querySelectorAll('li')).map(li => li.textContent).join('\n');
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            button.textContent = 'Copied!';
+            setTimeout(() => { button.textContent = 'Copy'; }, 2000);
         });
-        const data = await response.json();
-        if (response.ok) {
-            currentMatchScore = data.match_score !== undefined ? data.match_score : null;
-            currentMatchedKeywords = data.matched_keywords || [];
-            currentMissingKeywords = data.missing_keywords || [];
-            matchScoreDisplay.textContent = `Match Score: ${currentMatchScore !== null ? currentMatchScore : 'N/A'}`;
-        } else {
-            matchScoreDisplay.textContent = `Error: ${data.detail || 'Failed to get match score.'}`;
-        }
-    } catch (error) {
-        matchScoreDisplay.textContent = `Error: ${error.message}`;
-    }
-}
-
+    });
+});

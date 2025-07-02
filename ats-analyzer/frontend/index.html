@@ -14,22 +14,41 @@
     <main>
         <section id="upload-section">
             <h2>Upload Your Resume</h2>
-            <input type="file" id="resume-file" accept=".pdf,.doc,.docx" />
-            <button id="upload-btn">Upload Resume</button>
+            <div class="input-group">
+                <input type="file" id="resume-file" accept=".pdf,.doc,.docx" />
+                <button id="upload-btn">Upload Resume</button>
+            </div>
             <p id="upload-status"></p>
         </section>
 
         <section id="job-description-section" style="display:none;">
             <h2>Enter Job Description</h2>
-            <textarea id="job-description" rows="6" cols="60" placeholder="Paste the job description here..."></textarea>
-            <button id="submit-job-btn">Submit Job Description</button>
+            <textarea id="job-description" rows="8" placeholder="Paste the job description here..."></textarea>
+            <button id="submit-job-btn">Analyze</button>
             <p id="job-status"></p>
         </section>
 
-        <section id="match-score-section" style="display:none;">
-            <h2>ATS Compatibility Report</h2>
+        <div id="loader" style="display:none;">
+            <p>Analyzing... this may take a moment.</p>
+            <div class="spinner"></div>
+        </div>
+
+        <section id="report-section" style="display:none;">
+            <h2>Analysis Report</h2>
             <div id="match-score"></div>
-            <p id="report-status"></p>
+            <div id="keywords-container">
+                <div class="keywords-box">
+                    <h3>Matched Keywords</h3>
+                    <button class="copy-btn" data-target="matched-keywords">Copy</button>
+                    <ul id="matched-keywords"></ul>
+                </div>
+                <div class="keywords-box">
+                    <h3>Missing Keywords</h3>
+                    <button class="copy-btn" data-target="missing-keywords">Copy</button>
+                    <ul id="missing-keywords"></ul>
+                </div>
+            </div>
+            <div id="detailed-report"></div>
         </section>
     </main>
 
