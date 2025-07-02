@@ -2,6 +2,11 @@ import re
 import string
 from collections import defaultdict
 from fuzzywuzzy import fuzz
+import spacy
+from domain_keywords import DOMAIN_KEYWORDS
+
+# Load the spaCy model
+nlp = spacy.load("en_core_web_sm")
 
 # Common English stopwords list
 STOPWORDS = {
@@ -28,117 +33,179 @@ STOPWORDS = {
 def extract_keywords(text: str) -> set:
     """
     Extracts keywords from text by tokenizing, removing punctuation and stopwords.
+    Also extracts common bigrams (two-word phrases).
     """
     text = text.lower()
     text = text.translate(str.maketrans("", "", string.punctuation))
-    words = re.findall(r'\b\w{3,}\b', text)
-    return set(word for word in words if word not in STOPWORDS)
+    words = re.findall(r'\b\w{3,}\b', text) # words of 3 or more characters
+    
+    # Add bigrams (two-word phrases)
+    bigrams = [" ".join(words[i:i+2]) for i in range(len(words) - 1)]
+    
+    all_terms = set(word for word in words if word not in STOPWORDS)
+    all_terms.update(set(bigram for bigram in bigrams if all(word not in STOPWORDS for word in bigram.split())))
+    
+    return all_terms
 
-def compare_resume_job_keywords(resume_text: str, job_description: str, threshold=80) -> dict:
+
+
+def extract_and_categorize_keywords(job_description: str, categories: dict) -> dict:
     """
-    Compares resume and job description keywords using fuzzy matching.
+    Extracts keywords from the job description and categorizes them into universal categories using NLP and domain-specific keywords.
     """
-    resume_keywords = extract_keywords(resume_text)
-    job_keywords = extract_keywords(job_description)
+    doc = nlp(job_description)
+    
+    # Reset keywords for each call
+    for category in categories:
+        categories[category]["keywords"] = []
 
-    matched_keywords = set()
-    missing_keywords = set(job_keywords)
-
-    for job_keyword in job_keywords:
-        for resume_keyword in resume_keywords:
-            if fuzz.ratio(job_keyword, resume_keyword) >= threshold:
-                matched_keywords.add(job_keyword)
-                if job_keyword in missing_keywords:
-                    missing_keywords.remove(job_keyword)
+    # Detect job domain
+    job_domain = None
+    for domain, keywords in DOMAIN_KEYWORDS.items():
+        for category, keyword_list in keywords.items():
+            for keyword in keyword_list:
+                if keyword in job_description.lower():
+                    job_domain = domain
+                    break
+            if job_domain:
                 break
+        if job_domain:
+            break
 
-    match_score = 0
-    if job_keywords:
-        match_score = int(len(matched_keywords) / len(job_keywords) * 100)
+    # Populate categories with domain-specific keywords
+    if job_domain:
+        for category, keyword_list in DOMAIN_KEYWORDS[job_domain].items():
+            categories[category]["keywords"].extend(keyword_list)
 
-    return {
-        "match_score": match_score,
-        "matched_keywords": sorted(list(matched_keywords)),
-        "missing_keywords": sorted(list(missing_keywords))
-    }
+    # Keyword extraction logic
+    for ent in doc.ents:
+        if ent.label_ in ["ORG", "PRODUCT", "SKILL"]:
+            categories["Skills"]["keywords"].append(ent.text)
+        elif ent.label_ == "PERSON":
+            categories["Soft Skills"]["keywords"].append(ent.text)
+        elif ent.label_ == "DATE":
+            if "year" in ent.text.lower() or "experience" in ent.text.lower():
+                categories["Experience"]["keywords"].append(ent.text)
+        elif ent.label_ in ["GPE", "LOC"]:
+            # Could be relevant for job location, but for now, add to skills if not specific
+            categories["Skills"]["keywords"].append(ent.text)
 
-def generate_detailed_report(resume_text: str, job_description: str) -> dict:
+    for token in doc:
+        if token.pos_ == "NOUN" and not token.is_stop:
+            if "experience" in token.text.lower() or "years" in token.text.lower():
+                categories["Experience"]["keywords"].append(token.text)
+            elif "degree" in token.text.lower() or "education" in token.text.lower() or "bachelor" in token.text.lower() or "master" in token.text.lower() or "phd" in token.text.lower():
+                categories["Education"]["keywords"].append(token.text)
+            elif "certification" in token.text.lower() or "certified" in token.text.lower():
+                categories["Certifications"]["keywords"].append(token.text)
+            elif "project" in token.text.lower() or "portfolio" in token.text.lower():
+                categories["Projects / Portfolios"]["keywords"].append(token.text)
+            else:
+                categories["Skills"]["keywords"].append(token.text)
+        elif token.pos_ == "VERB" and not token.is_stop:
+            # Simple responsibilities extraction
+            categories["Responsibilities Match"]["keywords"].append(token.lemma_)
+
+    # Job Title & Role Match (simple extraction for now)
+    job_title_match = re.search(r"(senior|junior|lead|staff|principal)?\s*(\w+\s*){1,3}(engineer|developer|analyst|manager|specialist|architect)", job_description, re.IGNORECASE)
+    if job_title_match:
+        categories["Job Title & Role Match"]["keywords"].append(job_title_match.group(0))
+
+    # Achievements & Impact (look for quantifiable terms)
+    impact_match = re.findall(r"\b(?:increased|decreased|reduced|improved|achieved|generated)\s+\w+\s+(?:by|of)?\s*\d+[%$]?", job_description, re.IGNORECASE)
+    if impact_match:
+        categories["Achievements & Impact"]["keywords"].extend(impact_match)
+
+    return categories
+
+def generate_detailed_report(resume_text: str, job_description: str, threshold=80) -> dict:
     """
     Generates a detailed report by categorizing keywords and providing recommendations.
     """
-    comparison_results = compare_resume_job_keywords(resume_text, job_description)
-    matched_keywords = set(comparison_results["matched_keywords"])
-    
-    job_keywords = extract_keywords(job_description)
-
-    # Predefined category keywords for reference
-    predefined_categories = {
-        "Experience Level": {"internship", "trainee", "junior", "senior", "lead", "manager", "consultant"},
-        "Application Security": {"vulnerability", "assessment", "penetration", "secure", "code", "review", "testing"},
-        "Programming Skills": {"java", "c++", "python", "javascript", "js", "shell", "bash"},
-        "Security Tools": {"burp", "ida", "wireshark", "nmap", "nessus", "splunk", "zap"},
-        "Certifications": {"oscp", "cissp", "security+", "ejpt", "oswe", "gwapt"},
-        "Threat Modeling & Architecture": {"threat", "modeling", "architecture", "design"},
-        "Manual Pen Testing": {"manual", "penetration", "exploit"},
-        "Mobile App Security": {"mobile", "android", "ios", "app"},
-        "Education": {"b.tech", "bachelor", "computer", "information", "technology", "cs"},
-        "Communication Skills": {"communication", "teamwork", "leadership", "collaboration", "presentation"},
-        "Projects & Initiatives": {"project", "initiative", "development", "software"},
+    UNIVERSAL_CATEGORIES = {
+        "Job Title & Role Match": {"weight": 10, "keywords": []},
+        "Experience": {"weight": 15, "keywords": []},
+        "Skills": {"weight": 20, "keywords": []},
+        "Certifications": {"weight": 10, "keywords": []},
+        "Education": {"weight": 10, "keywords": []},
+        "Soft Skills": {"weight": 10, "keywords": []},
+        "Responsibilities Match": {"weight": 15, "keywords": []},
+        "Achievements & Impact": {"weight": 5, "keywords": []},
+        "Projects / Portfolios": {"weight": 5, "keywords": []},
+        "Language / Communication Quality": {"weight": 0, "keywords": []} # Score handled separately
     }
 
-    # Map keywords to categories dynamically
-    category_keywords_map = defaultdict(set)
-    other_keywords = set()
+    categorized_keywords = extract_and_categorize_keywords(job_description, UNIVERSAL_CATEGORIES)
+    resume_keywords = extract_keywords(resume_text)
 
-    for keyword in job_keywords:
-        matched_category = None
-        for category, keywords_set in predefined_categories.items():
-            if keyword in keywords_set:
-                category_keywords_map[category].add(keyword)
-                matched_category = category
-                break
-        if not matched_category:
-            other_keywords.add(keyword)
-
-    if other_keywords:
-        category_keywords_map["Other"] = other_keywords
-
-    # Evaluate each category
     ats_match_breakdown = []
     recommendations = []
-    for category, keywords in category_keywords_map.items():
-        category_matched = matched_keywords.intersection(keywords)
-        
-        if category_matched:
+    total_score = 0
+    total_weight = 0
+
+    all_matched_keywords = set()
+    all_missing_keywords = set()
+
+    for category, data in categorized_keywords.items():
+        if not data["keywords"]:
+            continue
+
+        matched_in_category = set()
+        for job_kw in data["keywords"]:
+            for resume_kw in resume_keywords:
+                if fuzz.token_set_ratio(job_kw, resume_kw) >= threshold:
+                    matched_in_category.add(job_kw)
+                    break
+
+        category_match_percentage = 0
+        if data["keywords"]:
+            category_match_percentage = int(len(matched_in_category) / len(data["keywords"]) * 100)
+
+        match_level = "None"
+        if category_match_percentage >= 80:
+            match_level = "Excellent"
+        elif category_match_percentage >= 50:
             match_level = "Good"
-            details = f"Matched keywords: {', '.join(sorted(list(category_matched)))}"
-        else:
-            match_level = "None"
-            details = "Not mentioned."
+        elif category_match_percentage > 0:
+            match_level = "Partial"
+
+        details = f"Matched: {', '.join(sorted(list(matched_in_category))) if matched_in_category else 'None'}. Missing: {', '.join(sorted(list(set(data['keywords']) - matched_in_category))) if (set(data['keywords']) - matched_in_category) else 'None'}."
 
         ats_match_breakdown.append({
             "category": category,
             "match_level": match_level,
+            "percentage": f"{category_match_percentage}%",
             "details": details,
         })
 
-        # Add generic recommendation for categories with no match
-        if match_level == "None":
-            recommendations.append(f"Consider gaining experience or knowledge in '{category}' related areas.")
+        all_matched_keywords.update(matched_in_category)
+        all_missing_keywords.update(set(data["keywords"]) - matched_in_category)
+
+        if category_match_percentage < 50:
+            recommendations.append(f"Improve your profile in '{category}' by adding relevant experience or skills. Missing keywords: {', '.join(sorted(list(set(data['keywords']) - matched_in_category)))}.")
+        
+        total_score += (category_match_percentage / 100) * data["weight"]
+        total_weight += data["weight"]
+
+    overall_match_score = int((total_score / total_weight) * 100) if total_weight > 0 else 0
+
+    # Sort breakdown by percentage (descending) and then by category name
+    ats_match_breakdown.sort(key=lambda x: (int(x['percentage'].replace('%', '')), x['category']), reverse=True)
 
     # Summary
     summary = (
-        "The resume is evaluated against the provided job description dynamically. "
-        "Focus on improving areas with low or no match to increase your ATS compatibility."
+        "This report evaluates your resume against the job description. "
+        "Focus on improving areas with lower match percentages to enhance your ATS compatibility. "
+        "Consider tailoring your resume to include more of the missing keywords and related concepts."
     )
 
-    match_score_value = comparison_results["match_score"]
-    
     report = {
-        "match_score_estimate": f"~{match_score_value - 5}-{match_score_value + 5}%",
+        "overall_match_score": f"{overall_match_score}%",
         "ats_match_breakdown": ats_match_breakdown,
         "recommendations": recommendations,
         "summary": summary,
+        "matched_keywords": sorted(list(all_matched_keywords)),
+        "missing_keywords": sorted(list(all_missing_keywords))
     }
 
     return report

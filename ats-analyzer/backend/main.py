@@ -3,8 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uuid
 import logging
-
-from matcher import compare_resume_job_keywords, generate_detailed_report, extract_keywords
+from matcher import generate_detailed_report
 from parser import extract_text_from_pdf, extract_text_from_docx
 
 # Configure logging
@@ -65,21 +64,6 @@ async def submit_job(description: str = Form(...), x_session_id: str = Header(No
     
     return JSONResponse(content={"message": "Job description received successfully", "session_id": x_session_id})
 
-@app.post("/match-score")
-async def match_score(x_session_id: str = Header(None)):
-    """Calculates and returns the match score between resume and job description."""
-    if not x_session_id or x_session_id not in session_storage:
-        raise HTTPException(status_code=400, detail="Invalid session ID.")
-
-    session_data = session_storage[x_session_id]
-    resume_text = session_data.get("resume_text")
-    job_description = session_data.get("job_description")
-
-    if not resume_text or not job_description:
-        raise HTTPException(status_code=400, detail="Resume and job description must be submitted.")
-
-    result = compare_resume_job_keywords(resume_text, job_description)
-    return JSONResponse(content=result)
 
 @app.post("/detailed-report")
 async def detailed_report(x_session_id: str = Header(None)):
@@ -96,21 +80,3 @@ async def detailed_report(x_session_id: str = Header(None)):
 
     report = generate_detailed_report(resume_text, job_description)
     return JSONResponse(content=report)
-
-@app.get("/keywords")
-async def get_keywords(x_session_id: str = Header(None)):
-    """Returns extracted keywords from the resume and job description."""
-    if not x_session_id or x_session_id not in session_storage:
-        raise HTTPException(status_code=400, detail="Invalid session ID.")
-
-    session_data = session_storage[x_session_id]
-    resume_text = session_data.get("resume_text", "")
-    job_description = session_data.get("job_description", "")
-
-    resume_keywords = sorted(list(extract_keywords(resume_text)))
-    job_keywords = sorted(list(extract_keywords(job_description)))
-
-    return JSONResponse(content={
-        "resume_keywords": resume_keywords,
-        "job_keywords": job_keywords
-    })

@@ -70,22 +70,15 @@ submitJobBtn.addEventListener('click', async () => {
             body: formData,
         });
 
-        const [reportResponse, keywordsResponse] = await Promise.all([
-            fetch(`${API_BASE_URL}/detailed-report`, {
-                method: 'POST',
-                headers: { 'x-session-id': sessionId }
-            }),
-            fetch(`${API_BASE_URL}/match-score`, {
-                method: 'POST',
-                headers: { 'x-session-id': sessionId }
-            })
-        ]);
+        const reportResponse = await fetch(`${API_BASE_URL}/detailed-report`, {
+            method: 'POST',
+            headers: { 'x-session-id': sessionId }
+        });
 
         const reportData = await reportResponse.json();
-        const keywordsData = await keywordsResponse.json();
 
-        if (reportResponse.ok && keywordsResponse.ok) {
-            displayReport(reportData, keywordsData);
+        if (reportResponse.ok) {
+            displayReport(reportData);
         } else {
             throw new Error('Failed to fetch analysis.');
         }
@@ -97,15 +90,15 @@ submitJobBtn.addEventListener('click', async () => {
     }
 });
 
-function displayReport(report, keywords) {
+function displayReport(report) {
     reportSection.style.display = 'block';
 
     // Display match score
-    matchScoreDisplay.textContent = `Match Score: ${keywords.match_score}%`;
+    matchScoreDisplay.textContent = `Match Score: ${report.overall_match_score}`;
 
     // Display keywords
-    displayKeywords(matchedKeywordsList, keywords.matched_keywords);
-    displayKeywords(missingKeywordsList, keywords.missing_keywords);
+    displayKeywords(matchedKeywordsList, report.matched_keywords);
+    displayKeywords(missingKeywordsList, report.missing_keywords);
 
     // Display detailed report table
     displayDetailedReportTable(report.ats_match_breakdown);
