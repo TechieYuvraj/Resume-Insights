@@ -9,7 +9,6 @@ const jobStatus = document.getElementById('job-status');
 
 const matchScoreSection = document.getElementById('match-score-section');
 const matchScoreDisplay = document.getElementById('match-score');
-const generateReportBtn = document.getElementById('generate-report-btn');
 const reportStatus = document.getElementById('report-status');
 
 let sessionId = null;
@@ -69,7 +68,7 @@ submitJobBtn.addEventListener('click', async () => {
         if (response.ok) {
             jobStatus.textContent = 'Job description submitted successfully.';
             matchScoreSection.style.display = 'block';
-            await fetchMatchScore();
+            await fetchDetailedReport();
         } else {
             jobStatus.textContent = `Error: ${data.detail || 'Submission failed.'}`;
         }
@@ -77,6 +76,72 @@ submitJobBtn.addEventListener('click', async () => {
         jobStatus.textContent = `Error: ${error.message}`;
     }
 });
+
+async function fetchDetailedReport() {
+    matchScoreDisplay.textContent = 'Generating detailed report...';
+    try {
+        const response = await fetch('http://127.0.0.1:8000/detailed-report', {
+            method: 'POST',
+            headers: {
+                'x-session-id': sessionId,
+            },
+        });
+        const data = await response.json();
+        if (response.ok) {
+            displayDetailedReport(data);
+        } else {
+            matchScoreDisplay.textContent = `Error: ${data.detail || 'Failed to get detailed report.'}`;
+        }
+    } catch (error) {
+        matchScoreDisplay.textContent = `Error: ${error.message}`;
+    }
+}
+
+function displayDetailedReport(report) {
+    // Clear previous content
+    matchScoreDisplay.innerHTML = '';
+
+    // Match Score
+    const scoreElem = document.createElement('p');
+    scoreElem.textContent = `ATS Compatibility Score: ${report.match_score}/100`;
+    matchScoreDisplay.appendChild(scoreElem);
+
+    // Strengths
+    const strengthsHeader = document.createElement('h3');
+    strengthsHeader.textContent = 'Strengths';
+    matchScoreDisplay.appendChild(strengthsHeader);
+    const strengthsList = document.createElement('ul');
+    report.strengths.forEach(strength => {
+        const li = document.createElement('li');
+        li.textContent = strength;
+        strengthsList.appendChild(li);
+    });
+    matchScoreDisplay.appendChild(strengthsList);
+
+    // Areas for Improvement
+    const improvementsHeader = document.createElement('h3');
+    improvementsHeader.textContent = 'Areas for Improvement';
+    matchScoreDisplay.appendChild(improvementsHeader);
+    const improvementsList = document.createElement('ul');
+    report.areas_for_improvement.forEach(improvement => {
+        const li = document.createElement('li');
+        li.textContent = improvement;
+        improvementsList.appendChild(li);
+    });
+    matchScoreDisplay.appendChild(improvementsList);
+
+    // Suggestions
+    const suggestionsHeader = document.createElement('h3');
+    suggestionsHeader.textContent = 'Suggestions';
+    matchScoreDisplay.appendChild(suggestionsHeader);
+    const suggestionsList = document.createElement('ul');
+    report.suggestions.forEach(suggestion => {
+        const li = document.createElement('li');
+        li.textContent = suggestion;
+        suggestionsList.appendChild(li);
+    });
+    matchScoreDisplay.appendChild(suggestionsList);
+}
 
 async function fetchMatchScore() {
     matchScoreDisplay.textContent = 'Calculating match score...';
@@ -101,42 +166,3 @@ async function fetchMatchScore() {
     }
 }
 
-generateReportBtn.addEventListener('click', async () => {
-    reportStatus.textContent = 'Generating report...';
-
-    try {
-        const payload = {
-            match_score: currentMatchScore !== null ? currentMatchScore : 0,
-            matched_keywords: currentMatchedKeywords,
-            missing_keywords: currentMissingKeywords,
-            resume_name: resumeFileInput.files[0]?.name || 'Resume',
-            job_role: 'Sample Job Role',
-        };
-
-        const response = await fetch('http://127.0.0.1:8000/generate-report', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload),
-        });
-
-        if (response.ok) {
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `ATS_Report_${payload.resume_name.replace(/\s+/g, '_')}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(url);
-            reportStatus.textContent = 'Report downloaded.';
-        } else {
-            const data = await response.json();
-            reportStatus.textContent = `Error: ${data.detail || 'Failed to generate report.'}`;
-        }
-    } catch (error) {
-        reportStatus.textContent = `Error: ${error.message}`;
-    }
-});

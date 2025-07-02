@@ -47,3 +47,60 @@ def compare_resume_job_keywords(resume_text: str, job_description: str) -> dict:
         "matched_keywords": matched_keywords,
         "missing_keywords": missing_keywords
     }
+
+def generate_detailed_report(resume_text: str, job_description: str) -> dict:
+    resume_keywords = extract_keywords(resume_text)
+    job_keywords = extract_keywords(job_description)
+
+    matched_keywords = resume_keywords.intersection(job_keywords)
+    missing_keywords = job_keywords.difference(resume_keywords)
+
+    match_score_value = 0
+    if job_keywords:
+        match_score_value = int(len(matched_keywords) / len(job_keywords) * 100)
+
+    # Example mappings for strengths and improvements
+    strengths = []
+    improvements = []
+
+    # Sample keywords for categories (expand as needed)
+    certifications = {"ceh", "security+", "oscp", "google cybersecurity professional certificate", "nptel"}
+    tools = {"wireshark", "nmap", "nessus", "burp suite", "splunk", "kali linux", "termux", "reconx", "sophos firewall"}
+    skills = {"python", "shell scripting", "vulnerability scanning", "penetration testing", "network protocols", "linux", "windows"}
+
+    # Check strengths
+    if any(cert in matched_keywords for cert in certifications):
+        strengths.append("Certifications: Relevant certifications found in resume.")
+    if any(tool in matched_keywords for tool in tools):
+        strengths.append("Tools: Experience with key security tools.")
+    if any(skill in matched_keywords for skill in skills):
+        strengths.append("Skills: Strong relevant skills matched.")
+
+    # Check improvements
+    missing_certs = [cert for cert in certifications if cert in missing_keywords]
+    if missing_certs:
+        improvements.append(f"Certifications to consider: {', '.join(missing_certs)}")
+    missing_tools = [tool for tool in tools if tool in missing_keywords]
+    if missing_tools:
+        improvements.append(f"Tools to gain experience with: {', '.join(missing_tools)}")
+    missing_skills = [skill for skill in skills if skill in missing_keywords]
+    if missing_skills:
+        improvements.append(f"Skills to improve: {', '.join(missing_skills)}")
+
+    # General suggestions
+    suggestions = []
+    if match_score_value < 70:
+        suggestions.append("Consider including more relevant keywords from the job description in your resume.")
+    else:
+        suggestions.append("Your resume matches well with the job description.")
+
+    report = {
+        "match_score": match_score_value,
+        "strengths": strengths,
+        "areas_for_improvement": improvements,
+        "suggestions": suggestions,
+        "matched_keywords": list(matched_keywords),
+        "missing_keywords": list(missing_keywords),
+    }
+
+    return report
