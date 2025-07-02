@@ -1,5 +1,6 @@
 import re
 import string
+from collections import defaultdict
 
 # Common English stopwords list
 STOPWORDS = {
@@ -59,48 +60,47 @@ def generate_detailed_report(resume_text: str, job_description: str) -> dict:
     if job_keywords:
         match_score_value = int(len(matched_keywords) / len(job_keywords) * 100)
 
-    # Example mappings for strengths and improvements
-    strengths = []
-    improvements = []
+    # Dynamic category generation by grouping keywords by common prefixes or stems
+    category_keywords_map = defaultdict(set)
 
-    # Sample keywords for categories (expand as needed)
-    certifications = {"ceh", "security+", "oscp", "google cybersecurity professional certificate", "nptel"}
-    tools = {"wireshark", "nmap", "nessus", "burp suite", "splunk", "kali linux", "termux", "reconx", "sophos firewall"}
-    skills = {"python", "shell scripting", "vulnerability scanning", "penetration testing", "network protocols", "linux", "windows"}
+    for keyword in job_keywords:
+        # Use simple heuristic: group by first 4 letters or whole word if short
+        category_key = keyword[:4] if len(keyword) > 4 else keyword
+        category_keywords_map[category_key].add(keyword)
 
-    # Check strengths
-    if any(cert in matched_keywords for cert in certifications):
-        strengths.append("Certifications: Relevant certifications found in resume.")
-    if any(tool in matched_keywords for tool in tools):
-        strengths.append("Tools: Experience with key security tools.")
-    if any(skill in matched_keywords for skill in skills):
-        strengths.append("Skills: Strong relevant skills matched.")
+    # Evaluate each dynamic category
+    ats_match_breakdown = []
+    recommendations = []
+    for category_key, keywords in category_keywords_map.items():
+        matched = matched_keywords.intersection(keywords)
+        if matched:
+            match_level = "Good"
+            details = f"Matched keywords: {', '.join(matched)}"
+        else:
+            match_level = "None"
+            details = "Not mentioned."
 
-    # Check improvements
-    missing_certs = [cert for cert in certifications if cert in missing_keywords]
-    if missing_certs:
-        improvements.append(f"Certifications to consider: {', '.join(missing_certs)}")
-    missing_tools = [tool for tool in tools if tool in missing_keywords]
-    if missing_tools:
-        improvements.append(f"Tools to gain experience with: {', '.join(missing_tools)}")
-    missing_skills = [skill for skill in skills if skill in missing_keywords]
-    if missing_skills:
-        improvements.append(f"Skills to improve: {', '.join(missing_skills)}")
+        ats_match_breakdown.append({
+            "category": category_key.capitalize(),
+            "match_level": match_level,
+            "details": details,
+        })
 
-    # General suggestions
-    suggestions = []
-    if match_score_value < 70:
-        suggestions.append("Consider including more relevant keywords from the job description in your resume.")
-    else:
-        suggestions.append("Your resume matches well with the job description.")
+        # Add generic recommendation for categories with no match
+        if match_level == "None":
+            recommendations.append(f"Consider gaining experience or knowledge in '{category_key}' related areas.")
+
+    # Summary
+    summary = (
+        "The resume is evaluated against the provided job description dynamically. "
+        "Focus on improving areas with low or no match to increase your ATS compatibility."
+    )
 
     report = {
-        "match_score": match_score_value,
-        "strengths": strengths,
-        "areas_for_improvement": improvements,
-        "suggestions": suggestions,
-        "matched_keywords": list(matched_keywords),
-        "missing_keywords": list(missing_keywords),
+        "match_score_estimate": f"~{match_score_value - 10}-{match_score_value + 10}%",
+        "ats_match_breakdown": ats_match_breakdown,
+        "recommendations": recommendations,
+        "summary": summary,
     }
 
     return report

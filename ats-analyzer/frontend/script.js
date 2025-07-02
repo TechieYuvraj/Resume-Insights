@@ -101,46 +101,67 @@ function displayDetailedReport(report) {
     // Clear previous content
     matchScoreDisplay.innerHTML = '';
 
-    // Match Score
+    // Match Score Estimate
     const scoreElem = document.createElement('p');
-    scoreElem.textContent = `ATS Compatibility Score: ${report.match_score}/100`;
+    scoreElem.textContent = `Match Score Estimate: ${report.match_score_estimate}`;
     matchScoreDisplay.appendChild(scoreElem);
 
-    // Strengths
-    const strengthsHeader = document.createElement('h3');
-    strengthsHeader.textContent = 'Strengths';
-    matchScoreDisplay.appendChild(strengthsHeader);
-    const strengthsList = document.createElement('ul');
-    report.strengths.forEach(strength => {
-        const li = document.createElement('li');
-        li.textContent = strength;
-        strengthsList.appendChild(li);
-    });
-    matchScoreDisplay.appendChild(strengthsList);
+    // ATS Match Breakdown Table
+    const breakdownHeader = document.createElement('h3');
+    breakdownHeader.textContent = 'ATS Match Breakdown';
+    matchScoreDisplay.appendChild(breakdownHeader);
 
-    // Areas for Improvement
-    const improvementsHeader = document.createElement('h3');
-    improvementsHeader.textContent = 'Areas for Improvement';
-    matchScoreDisplay.appendChild(improvementsHeader);
-    const improvementsList = document.createElement('ul');
-    report.areas_for_improvement.forEach(improvement => {
-        const li = document.createElement('li');
-        li.textContent = improvement;
-        improvementsList.appendChild(li);
-    });
-    matchScoreDisplay.appendChild(improvementsList);
+    const table = document.createElement('table');
+    table.style.borderCollapse = 'collapse';
+    table.style.width = '100%';
 
-    // Suggestions
-    const suggestionsHeader = document.createElement('h3');
-    suggestionsHeader.textContent = 'Suggestions';
-    matchScoreDisplay.appendChild(suggestionsHeader);
-    const suggestionsList = document.createElement('ul');
-    report.suggestions.forEach(suggestion => {
-        const li = document.createElement('li');
-        li.textContent = suggestion;
-        suggestionsList.appendChild(li);
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    ['Category', 'Match Level', 'Details'].forEach(text => {
+        const th = document.createElement('th');
+        th.textContent = text;
+        th.style.border = '1px solid black';
+        th.style.padding = '8px';
+        th.style.textAlign = 'left';
+        headerRow.appendChild(th);
     });
-    matchScoreDisplay.appendChild(suggestionsList);
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    report.ats_match_breakdown.forEach(item => {
+        const row = document.createElement('tr');
+        [item.category, item.match_level, item.details].forEach(text => {
+            const td = document.createElement('td');
+            td.textContent = text;
+            td.style.border = '1px solid black';
+            td.style.padding = '8px';
+            row.appendChild(td);
+        });
+        tbody.appendChild(row);
+    });
+    table.appendChild(tbody);
+    matchScoreDisplay.appendChild(table);
+
+    // Recommendations
+    const recommendationsHeader = document.createElement('h3');
+    recommendationsHeader.textContent = 'Recommendations';
+    matchScoreDisplay.appendChild(recommendationsHeader);
+    const recommendationsList = document.createElement('ul');
+    report.recommendations.forEach(rec => {
+        const li = document.createElement('li');
+        li.textContent = rec;
+        recommendationsList.appendChild(li);
+    });
+    matchScoreDisplay.appendChild(recommendationsList);
+
+    // Summary
+    const summaryHeader = document.createElement('h3');
+    summaryHeader.textContent = 'Summary';
+    matchScoreDisplay.appendChild(summaryHeader);
+    const summaryPara = document.createElement('p');
+    summaryPara.textContent = report.summary;
+    matchScoreDisplay.appendChild(summaryPara);
 }
 
 async function fetchMatchScore() {
