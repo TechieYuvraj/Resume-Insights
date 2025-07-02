@@ -3,6 +3,4 @@ uvicorn[standard]
 pdfplumber
 python-docx
 reportlab
-fuzzywuzzy
-python-Levenshtein
 spacy

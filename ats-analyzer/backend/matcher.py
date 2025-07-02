@@ -4,7 +4,6 @@ from collections import defaultdict
 from fuzzywuzzy import fuzz
 import spacy
 from spacy.matcher import PhraseMatcher, Matcher
-from domain_keywords import DOMAIN_KEYWORDS
 
 # Load the spaCy model
 nlp = spacy.load("en_core_web_sm")
@@ -54,109 +53,110 @@ def extract_and_categorize_keywords(job_description: str, categories: dict) -> d
     """
     Extracts keywords from the job description and categorizes them into universal categories using NLP and domain-specific keywords.
     """
-    doc = nlp(job_description)
-    
-    # Reset keywords for each call
+    doc = nlp(job_description.lower()) # Process in lowercase for consistent matching
+
+    # Reset keywords for each call and initialize sets for uniqueness
     for category in categories:
-        categories[category]["keywords"] = []
+        categories[category]["keywords"] = set()
 
-    # Detect job domain
-    job_domain = None
-    for domain, keywords in DOMAIN_KEYWORDS.items():
-        for category, keyword_list in keywords.items():
-            for keyword in keyword_list:
-                if keyword in job_description.lower():
-                    job_domain = domain
-                    break
-            if job_domain:
-                break
-        if job_domain:
-            break
+    # Use PhraseMatcher for skills and certifications from predefined lists
+    skill_matcher = PhraseMatcher(nlp.vocab)
+    cert_matcher = PhraseMatcher(nlp.vocab)
 
-    # Populate categories with domain-specific keywords
-    if job_domain:
-        for category, keyword_list in DOMAIN_KEYWORDS[job_domain].items():
-            categories[category]["keywords"].extend(keyword_list)
-
-    # Keyword extraction logic
-    for ent in doc.ents:
-        if ent.label_ in ["ORG", "PRODUCT", "SKILL"]:
-            categories["Skills"]["keywords"].append(ent.text)
-        elif ent.label_ == "PERSON":
-            categories["Soft Skills"]["keywords"].append(ent.text)
-        elif ent.label_ == "DATE":
-            if "year" in ent.text.lower() or "experience" in ent.text.lower():
-                categories["Experience"]["keywords"].append(ent.text)
-        elif ent.label_ in ["GPE", "LOC"]:
-            categories["Skills"]["keywords"].append(ent.text)
-
-    # Enhanced keyword extraction for Skills, Responsibilities, and Job Title
-    for token in doc:
-        if token.pos_ == "NOUN" and not token.is_stop:
-            if "experience" in token.text.lower() or "years" in token.text.lower():
-                categories["Experience"]["keywords"].append(token.text)
-            elif "degree" in token.text.lower() or "education" in token.text.lower() or "bachelor" in token.text.lower() or "master" in token.text.lower() or "phd" in token.text.lower():
-                categories["Education"]["keywords"].append(token.text)
-            elif "certification" in token.text.lower() or "certified" in token.text.lower():
-                categories["Certifications"]["keywords"].append(token.text)
-            elif "project" in token.text.lower() or "portfolio" in token.text.lower():
-                categories["Projects / Portfolios"]["keywords"].append(token.text)
-            else:
-                # General nouns as skills
-                categories["Skills"]["keywords"].append(token.text)
-        elif token.pos_ == "VERB" and not token.is_stop:
-            # Responsibilities: look for action verbs
-            categories["Responsibilities Match"]["keywords"].append(token.lemma_)
-
-    # Extracting multi-word skills and technologies
-    skill_patterns = [
-        {"LOWER": "html"}, {"LOWER": "css"}, {"LOWER": "javascript"},
-        {"LOWER": "react"}, {"LOWER": "angular"}, {"LOWER": "node.js"},
-        {"LOWER": "web"}, {"LOWER": "development"}, {"LOWER": "frameworks"},
-        {"LOWER": "python"}, {"LOWER": "sql"}, {"LOWER": "kali"}, {"LOWER": "linux"},
-        {"LOWER": "technical"}, {"LOWER": "support"}, {"LOWER": "security"}, {"LOWER": "researcher"}
-    ]
-    from spacy.matcher import PhraseMatcher
-    matcher = PhraseMatcher(nlp.vocab)
-    
-    # Add patterns for common skills and technologies
-    patterns = [nlp.make_doc(text) for text in [
+    # Add common skills and technologies, including those previously from DOMAIN_KEYWORDS
+    common_skills = [
         "HTML", "CSS", "JavaScript", "React", "Angular", "Node.js", "Web Development",
         "Python", "SQL", "Kali Linux", "Technical Support", "Security Researcher",
         "Sophos Firewall", "network interfaces", "firewall", "NAT rules", "VPN",
         "web filtering", "intrusion prevention", "threat protection", "logging",
         "firmware updates", "Google Analytics", "data storytelling", "client engagement",
-        "campaign", "ROI", "customer segments", "Burp Suite", "OWASP", "OSCP", "CISSP"
-    ]]
-    matcher.add("SKILL_PATTERNS", patterns)
+        "campaign", "ROI", "customer segments", "Burp Suite", "OWASP", "OSCP", "CISSP",
+        "machine learning", "artificial intelligence", "data science", "cloud computing",
+        "devops", "agile", "scrum", "project management", "cybersecurity", "network security",
+        "python", "java", "c++", "javascript", "react", "angular", "vue", "node.js", "django", "flask", "spring", "sql", "mongodb", "aws", "azure", "gcp", "docker", "kubernetes",
+        "seo", "sem", "google analytics", "salesforce", "hubspot", "lead generation", "content marketing", "social media marketing"
+    ]
+    skill_patterns = [nlp.make_doc(text.lower()) for text in common_skills]
+    skill_matcher.add("SKILL_PATTERNS", skill_patterns)
 
-    matches = matcher(doc)
+    # Add common certifications, including those previously from DOMAIN_KEYWORDS
+    common_certifications = [
+        "PMP", "CISSP", "CCNA", "CompTIA Security+", "AWS Certified Solutions Architect",
+        "Microsoft Certified: Azure Administrator Associate", "Certified ScrumMaster", "OSCP",
+        "aws certified developer", "google certified professional cloud architect", "microsoft certified: azure developer associate",
+        "google analytics individual qualification (iq)", "hubspot content marketing certification", "salesforce certified administrator"
+    ]
+    cert_patterns = [nlp.make_doc(text.lower()) for text in common_certifications]
+    cert_matcher.add("CERT_PATTERNS", cert_patterns)
+
+    matches = skill_matcher(doc)
     for match_id, start, end in matches:
         span = doc[start:end]
-        categories["Skills"]["keywords"].append(span.text)
+        categories["Skills"]["keywords"].add(span.text)
 
-    # Job Title & Role Match (more robust extraction)
-    job_title_patterns = [
-        {"LOWER": {"IN": ["developer", "engineer", "analyst", "manager", "specialist", "architect", "consultant"]}},
-        {"POS": "NOUN", "OP": "+"},
-        {"LOWER": {"IN": ["web", "software", "data", "security", "marketing", "financial"]}, "OP": "?"}
-    ]
-    from spacy.matcher import Matcher
+    matches = cert_matcher(doc)
+    for match_id, start, end in matches:
+        span = doc[start:end]
+        categories["Certifications"]["keywords"].add(span.text)
+
+    # Enhanced keyword extraction using spaCy's NER and token attributes
+    for ent in doc.ents:
+        if ent.label_ in ["ORG", "PRODUCT", "SKILL", "LANGUAGE"]: # Broader entity types for skills
+            categories["Skills"]["keywords"].add(ent.text)
+        elif ent.label_ == "DATE":
+            # Look for patterns indicating years of experience
+            if "year" in ent.text or "experience" in ent.text:
+                categories["Experience"]["keywords"].add(ent.text)
+        elif ent.label_ in ["GPE", "LOC"]: # Geographic locations can sometimes be relevant for roles
+            categories["Skills"]["keywords"].add(ent.text) # Or a new "Location" category
+
+    # Iterate through tokens for more granular extraction
+    for token in doc:
+        # Education
+        if token.pos_ == "NOUN" and any(edu_kw in token.text for edu_kw in ["degree", "bachelor", "master", "phd", "education", "university", "college"]):
+            categories["Education"]["keywords"].add(token.text)
+        
+        # Experience (looking for years, or action verbs in context)
+        if token.pos_ == "NOUN" and ("year" in token.text or "experience" in token.text):
+            categories["Experience"]["keywords"].add(token.text)
+        elif token.pos_ == "VERB" and not token.is_stop:
+            # Responsibilities: action verbs
+            categories["Responsibilities Match"]["keywords"].add(token.lemma_)
+        
+        # Soft Skills (often adjectives or nouns related to personal attributes)
+        if token.pos_ == "ADJ" and token.text in ["strong", "excellent", "proven", "effective", "analytical", "creative", "problem-solving", "communication", "leadership", "teamwork"]:
+            categories["Soft Skills"]["keywords"].add(token.text)
+        elif token.pos_ == "NOUN" and token.text in ["communication", "leadership", "teamwork", "collaboration", "adaptability"]:
+            categories["Soft Skills"]["keywords"].add(token.text)
+
+        # Projects / Portfolios
+        if token.pos_ == "NOUN" and ("project" in token.text or "portfolio" in token.text):
+            categories["Projects / Portfolios"]["keywords"].add(token.text)
+
+    # Job Title & Role Match (more robust extraction using patterns)
     title_matcher = Matcher(nlp.vocab)
-    title_matcher.add("JOB_TITLE", [job_title_patterns])
+    job_title_patterns = [
+        [{"POS": "ADJ", "OP": "*"}, {"POS": "NOUN", "OP": "+"}, {"LOWER": {"IN": ["developer", "engineer", "analyst", "manager", "specialist", "architect", "consultant", "lead", "director"]}}]
+    ]
+    title_matcher.add("JOB_TITLE", job_title_patterns)
     title_matches = title_matcher(doc)
     for match_id, start, end in title_matches:
         span = doc[start:end]
-        categories["Job Title & Role Match"]["keywords"].append(span.text)
+        categories["Job Title & Role Match"]["keywords"].add(span.text)
 
     # Achievements & Impact (look for quantifiable terms and strong action verbs)
     impact_terms = [
         "increased", "decreased", "reduced", "improved", "achieved", "generated",
-        "optimized", "streamlined", "implemented", "developed", "launched", "managed"
+        "optimized", "streamlined", "implemented", "developed", "launched", "managed",
+        "led", "drove", "delivered", "exceeded", "surpassed"
     ]
     for term in impact_terms:
         if term in job_description.lower():
-            categories["Achievements & Impact"]["keywords"].append(term)
+            categories["Achievements & Impact"]["keywords"].add(term)
+
+    # Convert sets back to lists for the report, ensuring uniqueness
+    for category in categories:
+        categories[category]["keywords"] = list(categories[category]["keywords"])
 
     return categories
 
@@ -211,7 +211,7 @@ def generate_detailed_report(resume_text: str, job_description: str, threshold=8
         elif category_match_percentage > 0:
             match_level = "Partial"
 
-        details = f"Matched: {', '.join(sorted(list(matched_in_category))) if matched_in_category else 'None'}. Missing: {', '.join(sorted(list(set(data['keywords']) - matched_in_category))) if (set(data['keywords']) - matched_in_category) else 'None'}."
+        details = f"Matched Keywords: {', '.join(sorted(list(matched_in_category))) if matched_in_category else 'None'}. Missing Keywords: {', '.join(sorted(list(set(data['keywords']) - matched_in_category))) if (set(data['keywords']) - matched_in_category) else 'None'}."
 
         ats_match_breakdown.append({
             "category": category,

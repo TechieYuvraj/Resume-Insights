@@ -124,7 +124,7 @@ function displayDetailedReportTable(breakdown) {
     const table = document.createElement('table');
     const thead = document.createElement('thead');
     const headerRow = document.createElement('tr');
-    ['Category', 'Match Level', 'Details'].forEach(text => {
+    ['Category', 'Match Level', 'Percentage', 'Details'].forEach(text => {
         const th = document.createElement('th');
         th.textContent = text;
         headerRow.appendChild(th);
@@ -135,11 +135,22 @@ function displayDetailedReportTable(breakdown) {
     const tbody = document.createElement('tbody');
     breakdown.forEach(item => {
         const row = document.createElement('tr');
-        Object.values(item).forEach(text => {
-            const td = document.createElement('td');
-            td.textContent = text;
-            row.appendChild(td);
-        });
+        const categoryTd = document.createElement('td');
+        categoryTd.textContent = item.category;
+        row.appendChild(categoryTd);
+
+        const matchLevelTd = document.createElement('td');
+        matchLevelTd.textContent = item.match_level;
+        row.appendChild(matchLevelTd);
+
+        const percentageTd = document.createElement('td');
+        percentageTd.textContent = item.percentage;
+        row.appendChild(percentageTd);
+
+        const detailsTd = document.createElement('td');
+        detailsTd.textContent = item.details;
+        row.appendChild(detailsTd);
+
         tbody.appendChild(row);
     });
     table.appendChild(tbody);
