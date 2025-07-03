@@ -33,32 +33,44 @@ Ensure you have Python 3.7+ installed on your system.
 
 ### Installation
 
-1.  **Clone the repository:**
+1. **Setup Parent Directory:**
+    ```sh
+    Create a new directory for your project and navigate into it.
+    ```
+
+2.  **Clone the Backend repository:**
     ```sh
     git clone https://github.com/TechieYuvraj/Resume-Insights-Backend
     ```
-2.  **Set up the Backend:**
-    ```sh
-    pip install -r requirements.txt
-    ```
-3.  **Run the Backend Server:**
-    ```sh
-    uvicorn main:app --host 127.0.0.1 --port 8000 --reload
-    ```
-4.  **Set up the Frontend:**
+
+3.  **Set up the Frontend repository:**
     ```sh
     git clone https://github.com/TechieYuvraj/Resume-Insights-Frontend
     ```
+
+4.  **Set up the Backend:**
+    ```sh
+    pip install -r requirements.txt
+    ```
+
+5.  **Run the Backend Server:**
+    ```sh
+    uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+    ```
+
+6. **Edit `script.js`** within the `Resume-Insights-Frontend` directory and update the `API_BASE_URL` variable. 
+    ```javascript
+    const API_BASE_URL = 'http://127.0.0.1:8000'; // Update this to your backend server URL
+    ```
+    
+7. **Run the Frontend:**
     *   Open the `index.html` file directly in your web browser, or serve it using a local web server (e.g., `python -m http.server`):
         ```sh
         python -m http.server 3000
         ```
     *   Open your web browser and go to `http://localhost:3000/` (or the port indicated by the server).
 
-5. **Edit `script.js`** within the `Resume-Insights-Frontend` directory and update the `API_BASE_URL` variable. 
-    ```javascript
-    const API_BASE_URL = 'http://127.0.0.1:8000'; // Update this to your backend server URL
-    ```
+
 
 ---
 
