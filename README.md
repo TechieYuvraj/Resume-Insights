@@ -47,8 +47,14 @@ Ensure you have Python 3.7+ installed on your system.
     ```sh
     uvicorn main:app --host 127.0.0.1 --port 8000 --reload
     ```
-4.  **Launch the Frontend:**
-    *   Open the `frontend/index.html` file in your favorite web browser.
+4.  **Run the Frontend Server:**
+    ```sh
+    cd ats-resume-analyzer/backend
+    python -m http.server 3000
+    ```
+    
+5.  **Run the Frontend:**
+    *   Open the `http://localhost:3000/` file in your favorite web browser.
 
 ---
 
