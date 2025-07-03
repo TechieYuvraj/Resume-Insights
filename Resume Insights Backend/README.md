@@ -36,7 +36,6 @@ Ensure you have Python 3.7+ installed on your system.
 1.  **Clone the repository:**
     ```sh
     git clone https://github.com/TechieYuvraj/Resume-Insights
-    cd ats-resume-analyzer
     ```
 2.  **Set up the Backend:**
     ```sh
@@ -47,16 +46,18 @@ Ensure you have Python 3.7+ installed on your system.
     ```sh
     uvicorn main:app --host 127.0.0.1 --port 8000 --reload
     ```
-4.  **Run the Frontend Server:**
-    ```sh
-    cd ats-resume-analyzer/frontend
-    python -m http.server 3000
-    ```
-    
-5.  **Run the Frontend:**
-    *   Open the `http://localhost:3000/` file in your favorite web browser.
+4.  **Set up the Frontend:**
+    *   Navigate to the `Resume-Insights-Frontend` directory:
+        ```sh
+        cd Resume-Insights-Frontend
+        ```
+    *   Open the `index.html` file directly in your web browser, or serve it using a local web server (e.g., `python -m http.server`):
+        ```sh
+        python -m http.server 3000
+        ```
+    *   Open your web browser and go to `http://localhost:3000/` (or the port indicated by the server).
 
-6. **Edit `script.js`** and update the `API_BASE_URL` variable. 
+5. **Edit `script.js`** within the `Resume-Insights-Frontend` directory and update the `API_BASE_URL` variable. 
     ```javascript
     // Before
     const API_BASE_URL = 'http://127.0.0.1:8000';
@@ -79,7 +80,7 @@ This application is designed for a decoupled deployment.
 
 ### Frontend Deployment (Hostinger)
 
-1.  **Upload** the contents of the `frontend` folder (`index.html`, `style.css`, `script.js`) to your Hostinger File Manager, typically in the `public_html` directory.
+1.  **Upload** the contents of the `Resume-Insights-Frontend` folder (`index.html`, `style.css`, `script.js`, `README.md`, `.gitattributes`) to your Hostinger File Manager, typically in the `public_html` directory.
 2.  **Edit `script.js`** and update the `API_BASE_URL` variable with your Render backend URL.
     ```javascript
     // Before
