@@ -56,6 +56,12 @@ Ensure you have Python 3.7+ installed on your system.
 5.  **Run the Frontend:**
     *   Open the `http://localhost:3000/` file in your favorite web browser.
 
+6. **Edit `script.js`** and update the `API_BASE_URL` variable. 
+    ```javascript
+    // Before
+    const API_BASE_URL = 'http://127.0.0.1:8000';
+    ```
+
 ---
 
 ## Deployment Guide
