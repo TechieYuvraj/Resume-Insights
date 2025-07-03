@@ -80,10 +80,10 @@ This application is designed for a decoupled deployment.
 
 1.  **Create a New Web Service** on Render and connect your GitHub repository.
 2.  **Use the following settings** during creation:
-    *   **Root Directory:** `ats-analyzer/backend`
+    *   **Root Directory:** `resume-insights-backend`
     *   **Build Command:** `pip install -r requirements.txt`
-    *   **Start Command:** `gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app`
-3.  Deploy the service and copy the provided `.onrender.com` URL.
+    *   **Start Command:** `uvicorn main:app --host 0.0.0.0 --port 10000`
+3.  Deploy the service and copy the provided `your-url.onrender.com` URL.
 
 ### Frontend Deployment (Hostinger)
 
