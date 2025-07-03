@@ -17,7 +17,7 @@ const detailedReportContainer = document.getElementById('detailed-report');
 let sessionId = null;
 
 // API base URL
-const API_BASE_URL = 'http://127.0.0.1:8000';
+const API_BASE_URL = 'https://resume-insights-bbqn.onrender.com/';
 
 uploadBtn.addEventListener('click', async () => {
     if (!resumeFileInput.files.length) {
