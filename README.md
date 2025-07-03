@@ -43,7 +43,7 @@ Ensure you have Python 3.7+ installed on your system.
     git clone https://github.com/TechieYuvraj/Resume-Insights-Backend
     ```
 
-3.  **Set up the Frontend repository:**
+3.  **Clone the Frontend repository:**
     ```sh
     git clone https://github.com/TechieYuvraj/Resume-Insights-Frontend
     ```
@@ -60,17 +60,15 @@ Ensure you have Python 3.7+ installed on your system.
 
 6. **Edit `script.js`** within the `Resume-Insights-Frontend` directory and update the `API_BASE_URL` variable. 
     ```javascript
-    const API_BASE_URL = 'http://127.0.0.1:8000'; // Update this to your backend server URL
+    const API_BASE_URL = 'http://127.0.0.1:8000'; // Update this to link your backend server with frontend.
     ```
-    
+
 7. **Run the Frontend:**
     *   Open the `index.html` file directly in your web browser, or serve it using a local web server (e.g., `python -m http.server`):
         ```sh
         python -m http.server 3000
         ```
     *   Open your web browser and go to `http://localhost:3000/` (or the port indicated by the server).
-
-
 
 ---
 
