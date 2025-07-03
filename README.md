@@ -49,7 +49,7 @@ Ensure you have Python 3.7+ installed on your system.
     ```
 4.  **Run the Frontend Server:**
     ```sh
-    cd ats-resume-analyzer/backend
+    cd ats-resume-analyzer/frontend
     python -m http.server 3000
     ```
     
