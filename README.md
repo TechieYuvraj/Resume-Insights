@@ -35,11 +35,10 @@ Ensure you have Python 3.7+ installed on your system.
 
 1.  **Clone the repository:**
     ```sh
-    git clone https://github.com/TechieYuvraj/Resume-Insights
+    git clone https://github.com/TechieYuvraj/Resume-Insights-Backend
     ```
 2.  **Set up the Backend:**
     ```sh
-    cd backend
     pip install -r requirements.txt
     ```
 3.  **Run the Backend Server:**
@@ -47,10 +46,9 @@ Ensure you have Python 3.7+ installed on your system.
     uvicorn main:app --host 127.0.0.1 --port 8000 --reload
     ```
 4.  **Set up the Frontend:**
-    *   Navigate to the `Resume-Insights-Frontend` directory:
-        ```sh
-        cd Resume-Insights-Frontend
-        ```
+    ```sh
+    git clone https://github.com/TechieYuvraj/Resume-Insights-Frontend
+    ```
     *   Open the `index.html` file directly in your web browser, or serve it using a local web server (e.g., `python -m http.server`):
         ```sh
         python -m http.server 3000
@@ -59,8 +57,7 @@ Ensure you have Python 3.7+ installed on your system.
 
 5. **Edit `script.js`** within the `Resume-Insights-Frontend` directory and update the `API_BASE_URL` variable. 
     ```javascript
-    // Before
-    const API_BASE_URL = 'http://127.0.0.1:8000';
+    const API_BASE_URL = 'http://127.0.0.1:8000'; // Update this to your backend server URL
     ```
 
 ---
