@@ -82,7 +82,7 @@ This application is designed for a decoupled deployment.
 2.  **Use the following settings** during creation:
     *   **Root Directory:** `resume-insights-backend`
     *   **Build Command:** `pip install -r requirements.txt`
-    *   **Start Command:** `uvicorn main:app --host 0.0.0.0 --port 10000`
+    *   **Start Command:** `uvicorn main:app --host 0.0.0.0 --port 10000 --workers 1`
 3.  Deploy the service and copy the provided `your-url.onrender.com` URL.
 
 ### Frontend Deployment (Hostinger)
