@@ -35,7 +35,7 @@ Ensure you have Python 3.7+ installed on your system.
 
 1.  **Clone the repository:**
     ```sh
-    git clone https://github.com/your-username/ats-resume-analyzer.git
+    git clone https://github.com/TechieYuvraj/Resume-Insights
     cd ats-resume-analyzer
     ```
 2.  **Set up the Backend:**
